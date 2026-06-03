@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #C28A5C;
+  --color-primary-hover: #A57248;
+  --color-primary-light: #F7EFE9;
+  --color-bg-primary: #FAF8F5;
+  --color-bg-secondary: #F0EBE3;
+  --color-text-main: #33251A;
+  --color-text-muted: #735F50;
+  
+  --font-sans: 'Inter', 'Sarabun', sans-serif;
+  --font-display: 'Outfit', 'Sarabun', sans-serif;
+}
+
+:root {
+  background-color: #FAF8F5;
+  color: #33251A;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #FAF8F5;
+  color: #33251A;
+  overflow-x: hidden;
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF8F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #E3D9CE;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C28A5C;
+}
