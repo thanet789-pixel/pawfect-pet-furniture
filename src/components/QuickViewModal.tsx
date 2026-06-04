@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { X, ShoppingCart, Truck, ShieldCheck, Star, Plus, Minus, MapPin, Heart, Store, MessageCircle, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { Product } from "../types";
 import { useCart } from "../context/CartContext";
@@ -387,6 +388,17 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, isOpen,
                 >
                   <Heart className={`w-5 h-5 ${isLiked ? "fill-current" : ""}`} />
                 </button>
+              </div>
+
+              {/* Link to Full Product Page */}
+              <div className="mt-5 border-t border-[#E3D9CE]/20 pt-4 flex">
+                <Link
+                  href={`/shop/${product.id}`}
+                  onClick={onClose}
+                  className="text-xs text-primary hover:text-primary-hover font-display font-bold flex items-center gap-1.5 transition-all hover:translate-x-0.5"
+                >
+                  ดูรายละเอียดสินค้าทั้งหมดแบบเต็มหน้าเพจ <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
           </div>

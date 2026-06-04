@@ -47,6 +47,7 @@ export interface Order {
   total: number;
   status: 'Pending' | 'Shipped' | 'Completed' | 'Cancelled';
   date: string;
+  slipImage?: string;
 }
 
 export interface Inquiry {

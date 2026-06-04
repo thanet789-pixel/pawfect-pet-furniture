@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getAuth, Auth } from "firebase/auth";
+import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,6 +15,7 @@ const firebaseConfig = {
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 let auth: Auth | null = null;
+let storage: FirebaseStorage | null = null;
 
 // Only initialize Firebase if API Key is provided
 const isFirebaseConfigured = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -23,6 +25,7 @@ if (typeof window !== "undefined" ? isFirebaseConfigured : isFirebaseConfigured)
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
+    storage = getStorage(app);
     console.log("Firebase initialized successfully.");
   } catch (error) {
     console.error("Failed to initialize Firebase:", error);
@@ -31,4 +34,4 @@ if (typeof window !== "undefined" ? isFirebaseConfigured : isFirebaseConfigured)
   console.log("Firebase environment variables are not configured. Running in Local Storage database mode.");
 }
 
-export { app, db, auth, isFirebaseConfigured };
+export { app, db, auth, storage, isFirebaseConfigured };

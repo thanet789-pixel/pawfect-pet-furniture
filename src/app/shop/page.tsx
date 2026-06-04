@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Eye, ShoppingBag, RotateCcw, Search, Box } from "lucide-react";
 import { Category, Product } from "../../types";
 import { getCategories, getProducts } from "../../lib/db";
@@ -256,11 +257,13 @@ function ShopContent() {
 
                   {/* Image container & overlay */}
                   <div className="h-56 bg-[#F0EBE3]/40 overflow-hidden relative">
-                    <img
-                      src={p.image}
-                      alt={p.nameTh}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                    />
+                    <Link href={`/shop/${p.id}`}>
+                      <img
+                        src={p.image}
+                        alt={p.nameTh}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                      />
+                    </Link>
                     <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 z-10">
                       <button
                         onClick={() => {
@@ -286,19 +289,16 @@ function ShopContent() {
 
                   {/* Info details */}
                   <div className="p-5 flex flex-col flex-grow justify-between gap-4">
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5 text-left">
                       <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
                         {getCategoryNameTh(p.category)}
                       </span>
-                      <h3
-                        onClick={() => {
-                          setSelectedProduct(p);
-                          setIsQuickViewOpen(true);
-                        }}
+                      <Link
+                        href={`/shop/${p.id}`}
                         className="font-display font-semibold text-sm text-text-main hover:text-primary transition-all cursor-pointer leading-snug line-clamp-2"
                       >
                         {p.nameTh}
-                      </h3>
+                      </Link>
                     </div>
                     <div className="flex justify-between items-center border-t border-[#E3D9CE]/20 pt-3">
                       <span className="font-display font-bold text-[#A57248] text-base">

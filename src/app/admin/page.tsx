@@ -30,8 +30,11 @@ import {
   getCategories, 
   saveProduct, 
   deleteProduct, 
-  updateOrderStatus 
+  updateOrderStatus,
+  uploadFileToStorage
 } from "../../lib/db";
+import { auth, isFirebaseConfigured } from "../../lib/firebase";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { useToast } from "../../context/ToastContext";
 
 export default function AdminPage() {
@@ -75,6 +78,23 @@ export default function AdminPage() {
   const [formProdWarranty, setFormProdWarranty] = useState<string>("");
   const [formProdPackage, setFormProdPackage] = useState<string>("");
 
+  // Slip Lightbox State
+  const [selectedSlipUrl, setSelectedSlipUrl] = useState<string>("");
+
+  // Listen to Firebase Auth state changes
+  useEffect(() => {
+    if (isFirebaseConfigured && auth) {
+      const unsubscribe = auth.onAuthStateChanged((user) => {
+        if (user) {
+          setIsLoggedIn(true);
+        } else {
+          setIsLoggedIn(false);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, []);
+
   // Load Admin Data on login
   useEffect(() => {
     if (isLoggedIn) {
@@ -93,19 +113,39 @@ export default function AdminPage() {
     setCategories(cats);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError("");
+    
+    if (isFirebaseConfigured && auth) {
+      try {
+        await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+        setIsLoggedIn(true);
+        showToast("เข้าสู่ระบบหลังบ้านด้วย Firebase สำเร็จแล้ว", "success");
+        return;
+      } catch (err: any) {
+        console.warn("Firebase Auth login failed, checking fallback credentials...", err);
+      }
+    }
+
     if (loginEmail === "admin@pawfect.com" && loginPassword === "admin123") {
       setIsLoggedIn(true);
       setAuthError("");
-      showToast("เข้าสู่ระบบหลังบ้านสำเร็จแล้ว", "success");
+      showToast("เข้าสู่ระบบหลังบ้านด้วยบัญชีสำรองสำเร็จแล้ว", "success");
     } else {
       setAuthError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       showToast("เข้าสู่ระบบไม่สำเร็จ", "danger");
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (isFirebaseConfigured && auth) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error("Firebase SignOut failed", err);
+      }
+    }
     setIsLoggedIn(false);
     showToast("ออกจากระบบหลังบ้านแล้ว", "info");
   };
@@ -659,6 +699,17 @@ export default function AdminPage() {
                           <div className="flex items-center gap-1.5 mb-1 text-[11px]"><Mail className="w-3.5 h-3.5 text-primary flex-shrink-0" /> {ord.email}</div>
                           <div className="flex items-center gap-1.5 text-[11px]"><Phone className="w-3.5 h-3.5 text-primary flex-shrink-0" /> {ord.phone}</div>
                           <div className="text-[10px] max-w-[200px] mt-1.5 line-clamp-2" title={ord.address}>ที่อยู่: {ord.address}</div>
+                          {ord.slipImage && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-emerald-600">แนบสลิปแล้ว:</span>
+                              <button
+                                onClick={() => setSelectedSlipUrl(ord.slipImage!)}
+                                className="px-2 py-0.8 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[9px] font-bold rounded border border-emerald-200 transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                🖼️ ดูรูปสลิป
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 leading-relaxed font-semibold text-text-main">
                           {ord.items.map((item, idx) => (
@@ -838,67 +889,27 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-text-main uppercase mb-1.5">รูปภาพหลัก (พาธ/URL) <span className="text-rose-500">*</span></label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={formProdImage}
-                        onChange={(e) => setFormProdImage(e.target.value)}
-                        className="flex-grow bg-white border border-[#E3D9CE] rounded-lg px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-primary text-text-main"
-                        placeholder="assets/cat_furniture.png"
-                        required
-                      />
-                      <select
-                        value=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            setFormProdImage(e.target.value);
-                          }
-                        }}
-                        className="bg-[#FAF8F5] border border-[#E3D9CE] rounded-lg px-2 text-[10px] font-bold text-text-main cursor-pointer max-w-[110px]"
-                      >
-                        <option value="">เลือกพรีเซ็ต...</option>
-                        <option value="assets/cat_furniture.png">คอนโดแมว</option>
-                        <option value="assets/dog_furniture.png">โซฟาสุนัข</option>
-                        <option value="assets/pet_accessories.png">บ้านสามเหลี่ยม</option>
-                        <option value="assets/storage_cabinet.png">ตู้เก็บของ</option>
-                        <option value="assets/hero_cat.png">เปลติดกระจก</option>
-                        <option value="assets/about_pets.png">เตียงสุนัข</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sub Images Gallery */}
-                <div className="border border-[#E3D9CE]/30 rounded-xl p-4 bg-white flex flex-col gap-3">
-                  <span className="text-[10px] font-bold text-text-main uppercase tracking-wider block border-b border-[#E3D9CE]/20 pb-2">แกลเลอรีรูปภาพย่อย (สูงสุด 5 รูป)</span>
-                  <div className="flex flex-col gap-2.5">
-                    {formProdImages.map((img, idx) => (
-                      <div key={idx} className="flex gap-2 items-center">
-                        <span className="text-[10px] font-bold text-text-muted w-14">รูปย่อย {idx + 1}:</span>
+                    <label className="block text-[10px] font-bold text-text-main uppercase mb-1.5">รูปภาพหลัก (พาธ/URL หรือ อัปโหลด) <span className="text-rose-500">*</span></label>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
                         <input
                           type="text"
-                          value={img}
-                          onChange={(e) => {
-                            const updated = [...formProdImages];
-                            updated[idx] = e.target.value;
-                            setFormProdImages(updated);
-                          }}
-                          className="flex-grow bg-[#FAF8F5] border border-[#E3D9CE]/70 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none focus:border-primary text-text-main"
-                          placeholder={`พาธรูปภาพย่อยที่ ${idx + 1}`}
+                          value={formProdImage}
+                          onChange={(e) => setFormProdImage(e.target.value)}
+                          className="flex-grow bg-white border border-[#E3D9CE] rounded-lg px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-primary text-text-main"
+                          placeholder="assets/cat_furniture.png"
+                          required
                         />
                         <select
                           value=""
                           onChange={(e) => {
                             if (e.target.value) {
-                              const updated = [...formProdImages];
-                              updated[idx] = e.target.value;
-                              setFormProdImages(updated);
+                              setFormProdImage(e.target.value);
                             }
                           }}
-                          className="bg-[#F0EBE3] border border-[#E3D9CE]/40 rounded-lg px-1.5 py-2 text-[9px] font-bold text-text-main cursor-pointer max-w-[85px]"
+                          className="bg-[#FAF8F5] border border-[#E3D9CE] rounded-lg px-2 text-[10px] font-bold text-text-main cursor-pointer max-w-[110px]"
                         >
-                          <option value="">พรีเซ็ต...</option>
+                          <option value="">เลือกพรีเซ็ต...</option>
                           <option value="assets/cat_furniture.png">คอนโดแมว</option>
                           <option value="assets/dog_furniture.png">โซฟาสุนัข</option>
                           <option value="assets/pet_accessories.png">บ้านสามเหลี่ยม</option>
@@ -906,6 +917,124 @@ export default function AdminPage() {
                           <option value="assets/hero_cat.png">เปลติดกระจก</option>
                           <option value="assets/about_pets.png">เตียงสุนัข</option>
                         </select>
+                      </div>
+                      
+                      {/* Image Upload Trigger */}
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="file"
+                          id="main-img-upload"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              const file = e.target.files[0];
+                              try {
+                                showToast("กำลังอัปโหลดรูปหลัก...", "info");
+                                const url = await uploadFileToStorage(file, "products");
+                                setFormProdImage(url);
+                                showToast("อัปโหลดรูปหลักสำเร็จ", "success");
+                              } catch (err) {
+                                showToast("อัปโหลดรูปหลักล้มเหลว", "danger");
+                              }
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="main-img-upload"
+                          className="px-3 py-1.5 bg-[#F0EBE3] hover:bg-[#E3D9CE] border border-[#E3D9CE] rounded-md text-[10px] font-bold text-text-main cursor-pointer transition-colors"
+                        >
+                          📤 อัปโหลดรูปภาพหลัก
+                        </label>
+                        {formProdImage && (
+                          <img
+                            src={formProdImage}
+                            alt="Main product preview"
+                            className="w-10 h-10 object-cover rounded border border-[#E3D9CE]/30"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub Images Gallery */}
+                <div className="border border-[#E3D9CE]/30 rounded-xl p-4 bg-white flex flex-col gap-3">
+                  <span className="text-[10px] font-bold text-text-main uppercase tracking-wider block border-b border-[#E3D9CE]/20 pb-2">แกลเลอรีรูปภาพย่อย (สูงสุด 5 รูป)</span>
+                  <div className="flex flex-col gap-3.5">
+                    {formProdImages.map((img, idx) => (
+                      <div key={idx} className="flex flex-col gap-2 p-3 bg-[#FAF8F5] rounded-lg border border-[#E3D9CE]/15">
+                        <div className="flex gap-2 items-center">
+                          <span className="text-[10px] font-bold text-text-muted w-14">รูปย่อย {idx + 1}:</span>
+                          <input
+                            type="text"
+                            value={img}
+                            onChange={(e) => {
+                              const updated = [...formProdImages];
+                              updated[idx] = e.target.value;
+                              setFormProdImages(updated);
+                            }}
+                            className="flex-grow bg-white border border-[#E3D9CE]/70 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none focus:border-primary text-text-main"
+                            placeholder={`พาธรูปภาพย่อยที่ ${idx + 1}`}
+                          />
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                const updated = [...formProdImages];
+                                updated[idx] = e.target.value;
+                                setFormProdImages(updated);
+                              }
+                            }}
+                            className="bg-[#F0EBE3] border border-[#E3D9CE]/40 rounded-lg px-1.5 py-2 text-[9px] font-bold text-text-main cursor-pointer max-w-[85px]"
+                          >
+                            <option value="">พรีเซ็ต...</option>
+                            <option value="assets/cat_furniture.png">คอนโดแมว</option>
+                            <option value="assets/dog_furniture.png">โซฟาสุนัข</option>
+                            <option value="assets/pet_accessories.png">บ้านสามเหลี่ยม</option>
+                            <option value="assets/storage_cabinet.png">ตู้เก็บของ</option>
+                            <option value="assets/hero_cat.png">เปลติดกระจก</option>
+                            <option value="assets/about_pets.png">เตียงสุนัข</option>
+                          </select>
+                        </div>
+                        
+                        {/* Sub Image Upload Trigger */}
+                        <div className="flex items-center gap-3 pl-14">
+                          <input
+                            type="file"
+                            id={`sub-img-upload-${idx}`}
+                            accept="image/*"
+                            onChange={async (e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                const file = e.target.files[0];
+                                try {
+                                  showToast(`กำลังอัปโหลดรูปย่อย ${idx + 1}...`, "info");
+                                  const url = await uploadFileToStorage(file, "products");
+                                  const updated = [...formProdImages];
+                                  updated[idx] = url;
+                                  setFormProdImages(updated);
+                                  showToast(`อัปโหลดรูปย่อย ${idx + 1} สำเร็จ`, "success");
+                                } catch (err) {
+                                  showToast(`อัปโหลดรูปย่อย ${idx + 1} ล้มเหลว`, "danger");
+                                }
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          <label
+                            htmlFor={`sub-img-upload-${idx}`}
+                            className="px-2.5 py-1.5 bg-white hover:bg-[#F0EBE3] border border-[#E3D9CE]/70 rounded text-[9px] font-bold text-text-main cursor-pointer transition-colors"
+                          >
+                            📤 อัปโหลดรูปภาพย่อย
+                          </label>
+                          {img && (
+                            <img
+                              src={img}
+                              alt={`Sub product ${idx + 1} preview`}
+                              className="w-8 h-8 object-cover rounded border border-[#E3D9CE]/30"
+                            />
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1030,6 +1159,39 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- BANK TRANSFER SLIP LIGHTBOX MODAL --- */}
+      {selectedSlipUrl && (
+        <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]">
+          <div className="absolute inset-0 cursor-zoom-out" onClick={() => setSelectedSlipUrl("")} />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-white/10 overflow-hidden p-6 flex flex-col items-center gap-4 animate-[scaleUp_0.2s_ease-out]">
+            <div className="flex justify-between items-center w-full border-b border-[#E3D9CE]/30 pb-3">
+              <span className="font-display font-bold text-sm text-text-main">
+                สลิปหลักฐานการโอนเงิน
+              </span>
+              <button
+                onClick={() => setSelectedSlipUrl("")}
+                className="w-8 h-8 rounded-full bg-[#FAF8F5] text-text-main flex items-center justify-center border border-[#E3D9CE]/30 font-semibold cursor-pointer hover:bg-[#F0EBE3] transition-all"
+              >
+                X
+              </button>
+            </div>
+            <div className="w-full flex justify-center bg-[#FAF8F5] rounded-xl p-4 border border-[#E3D9CE]/15 overflow-hidden">
+              <img
+                src={selectedSlipUrl}
+                alt="Bank Transfer Slip"
+                className="max-h-[60vh] object-contain rounded-lg shadow-sm"
+              />
+            </div>
+            <button
+              onClick={() => setSelectedSlipUrl("")}
+              className="bg-primary text-white px-6 py-2 rounded-full font-display font-semibold text-xs hover:bg-primary-hover active:scale-98 transition-all w-full cursor-pointer"
+            >
+              ปิดหน้าต่างนี้
+            </button>
           </div>
         </div>
       )}

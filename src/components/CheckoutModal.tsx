@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, CreditCard, Landmark, CheckCircle } from "lucide-react";
+import { X, CreditCard, Landmark, CheckCircle, Upload } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import { saveOrder } from "../lib/db";
+import { saveOrder, uploadFileToStorage } from "../lib/db";
 import { useToast } from "../context/ToastContext";
 import { useRouter } from "next/navigation";
 
@@ -22,7 +22,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"bank" | "cod">("bank");
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipPreview, setSlipPreview] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSlipFile(file);
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSlipPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -35,6 +50,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
 
     setIsSubmitting(true);
     try {
+      let slipUrl = "";
+      if (paymentMethod === "bank" && slipFile) {
+        slipUrl = await uploadFileToStorage(slipFile, "slips");
+      }
+
       const orderData = {
         customerName: name,
         email,
@@ -44,6 +64,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
         subtotal,
         shippingFee: paymentMethod === "cod" ? shippingFee + 50 : shippingFee,
         total: paymentMethod === "cod" ? total + 50 : total,
+        slipImage: slipUrl || undefined
       };
 
       // Call database adapter (Hybrid Mode)
@@ -56,6 +77,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
       setPhone("");
       setAddress("");
       setPaymentMethod("bank");
+      setSlipFile(null);
+      setSlipPreview("");
       
       showToast("สร้างคำสั่งซื้อสำเร็จ! เราจะส่งข้อมูลอัปเดตไปที่อีเมลของคุณโดยเร็วที่สุด", "success");
       onClose();
@@ -171,16 +194,55 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
 
             {/* Bank details conditional render */}
             {paymentMethod === "bank" && (
-              <div className="bg-[#F0EBE3] border border-[#E3D9CE]/50 rounded-xl p-5 text-xs text-text-muted flex flex-col gap-2">
-                <p className="font-bold text-text-main flex items-center gap-1.5 mb-1">
-                  <Landmark className="w-4 h-4 text-primary" /> บัญชีธนาคารสำหรับโอนเงิน:
-                </p>
-                <p className="font-medium text-text-main">ธนาคารกสิกรไทย (KBANK) • บัญชีออมทรัพย์</p>
-                <p className="text-base font-bold text-primary-hover my-0.5">123-4-56789-0</p>
-                <p className="font-medium text-text-main">ชื่อบัญชี: บจก. พอว์เฟค เพ็ท เฟอร์นิเจอร์</p>
-                <p className="text-[10px] text-text-muted/80 mt-1 border-t border-[#E3D9CE] pt-1.5">
-                  * กรุณาโอนเงินตามยอดสุทธิ และทางเจ้าหน้าที่จะอนุมัติออเดอร์ในหน้าควบคุมอย่างรวดเร็ว
-                </p>
+              <div className="flex flex-col gap-4">
+                <div className="bg-[#F0EBE3] border border-[#E3D9CE]/50 rounded-xl p-5 text-xs text-text-muted flex flex-col gap-2 animate-[fadeIn_0.2s_ease-out]">
+                  <p className="font-bold text-text-main flex items-center gap-1.5 mb-1">
+                    <Landmark className="w-4 h-4 text-primary" /> บัญชีธนาคารสำหรับโอนเงิน:
+                  </p>
+                  <p className="font-medium text-text-main">ธนาคารกสิกรไทย (KBANK) • บัญชีออมทรัพย์</p>
+                  <p className="text-base font-bold text-primary-hover my-0.5">123-4-56789-0</p>
+                  <p className="font-medium text-text-main">ชื่อบัญชี: บจก. พอว์เฟค เพ็ท เฟอร์นิเจอร์</p>
+                  <p className="text-[10px] text-text-muted/80 mt-1 border-t border-[#E3D9CE] pt-1.5">
+                    * กรุณาโอนเงินตามยอดสุทธิ และส่งหลักฐานสลิปการโอนเงินด้านล่างนี้
+                  </p>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  <label className="block text-xs font-bold text-text-main uppercase">
+                    อัปโหลดสลิปการโอนเงิน <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="slip-input"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      required={paymentMethod === "bank"}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="slip-input"
+                      className="flex flex-col items-center justify-center border-2 border-dashed border-[#E3D9CE] rounded-xl p-5 cursor-pointer bg-white hover:bg-[#F7EFE9]/40 hover:border-primary transition-all duration-200"
+                    >
+                      {slipPreview ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <img
+                            src={slipPreview}
+                            alt="Slip Preview"
+                            className="max-h-40 rounded-lg object-contain shadow-sm"
+                          />
+                          <span className="text-[10px] font-bold text-primary">คลิกเพื่อเปลี่ยนรูปสลิป</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-text-muted">
+                          <Upload className="w-6 h-6 text-text-muted/60" />
+                          <span className="text-xs font-semibold">อัปโหลดสลิปการโอนเงินที่นี่</span>
+                          <span className="text-[9px] text-text-muted/60">ยอมรับไฟล์รูปภาพ PNG, JPG ขนาดไม่เกิน 5MB</span>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                </div>
               </div>
             )}
           </div>

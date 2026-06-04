@@ -1,4 +1,4 @@
-import { db, isFirebaseConfigured } from "./firebase";
+import { db, storage, isFirebaseConfigured } from "./firebase";
 import { 
   collection, 
   doc, 
@@ -11,6 +11,7 @@ import {
   orderBy,
   runTransaction
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product, Category, Order, Inquiry } from "../types";
 
 // --- SEED DATA ---
@@ -570,7 +571,7 @@ export async function saveInquiry(inquiryInput: Omit<Inquiry, 'id' | 'date'>): P
 
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "products", id), newInq);
+      await setDoc(doc(db, "inquiries", id), newInq);
       return newInq;
     } catch (e) {
       console.error("Firestore saveInquiry failed, falling back to LocalStorage", e);
@@ -581,6 +582,32 @@ export async function saveInquiry(inquiryInput: Omit<Inquiry, 'id' | 'date'>): P
   inquiries.push(newInq);
   setLocal('pawfect_inquiries', inquiries);
   return newInq;
+}
+
+// 10.5 Upload File to Storage Helper
+export async function uploadFileToStorage(file: File, folder: string): Promise<string> {
+  if (isFirebaseConfigured && storage) {
+    try {
+      const storageRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      return downloadURL;
+    } catch (e) {
+      console.error("Firebase Storage upload failed, falling back to local base64 reader", e);
+    }
+  }
+
+  // Fallback: Read file as Base64 Data URL for localStorage/mock compatibility
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      resolve(reader.result as string);
+    };
+    reader.onerror = () => {
+      reject(new Error("Failed to read file as base64 string"));
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // 11. Reset Database
